@@ -1,0 +1,31 @@
+{
+  "_comment": "Example: switch JDBC sink to consume from Flink's clean topics instead of raw Debezium topics",
+  "name": "jdbc-sink-financedb-clean",
+  "config": {
+    "connector.class": "io.confluent.connect.jdbc.JdbcSinkConnector",
+    "tasks.max": "4",
+    "connection.url": "jdbc:postgresql://<AURORA_HOST>:<PORT>/<DB>",
+    "connection.user": "<USER>",
+    "connection.password": "<PASS>",
+    "topics.regex": "clean\\.financedb\\..*",
+    "insert.mode": "upsert",
+    "delete.enabled": "true",
+    "pk.mode": "record_key",
+    "pk.fields": "",
+    "auto.create": "true",
+    "auto.evolve": "true",
+    "batch.size": "3000",
+    "key.converter": "io.confluent.connect.avro.AvroConverter",
+    "key.converter.schema.registry.url": "http://schemaregistry.confluent.svc.cluster.local:8081",
+    "value.converter": "io.confluent.connect.avro.AvroConverter",
+    "value.converter.schema.registry.url": "http://schemaregistry.confluent.svc.cluster.local:8081",
+    "transforms": "unwrap,route",
+    "transforms.unwrap.type": "io.debezium.transforms.ExtractNewRecordState",
+    "transforms.unwrap.drop.tombstones": "false",
+    "transforms.unwrap.delete.handling.mode": "rewrite",
+    "transforms.route.type": "org.apache.kafka.connect.transforms.RegexRouter",
+    "transforms.route.regex": "[^.]+[.](.*)[.](.*)",
+    "transforms.route.replacement": "$2",
+    "consumer.override.auto.offset.reset": "earliest"
+  }
+}

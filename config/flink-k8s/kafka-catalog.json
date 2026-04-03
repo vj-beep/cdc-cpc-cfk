@@ -1,0 +1,15 @@
+{
+  "apiVersion": "cmf.confluent.io/v1",
+  "kind": "KafkaCatalog",
+  "metadata": {
+    "name": "cdc-catalog"
+  },
+  "spec": {
+    "kafka": {
+      "bootstrapServers": "kafka.confluent.svc.cluster.local:9071"
+    },
+    "schemaRegistry": {
+      "url": "http://schemaregistry.confluent.svc.cluster.local:8081"
+    }
+  }
+}

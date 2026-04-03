@@ -1,0 +1,49 @@
+# ------------------------------------------------------------------
+# terraform.tfvars.example  -  Copy to terraform.tfvars and fill in
+# ------------------------------------------------------------------
+
+project_name = "cdc-on-cpc"
+aws_region   = "us-east-1"
+environment  = "dev"
+vpc_cidr     = "10.0.0.0/16"
+
+# Your Mac public IP  (curl -4 -s ifconfig.me)
+my_ip            = "YOUR_IP_HERE/32"
+mac_iam_role_arn = "arn:aws:iam::ACCOUNT_ID:role/YOUR_ROLE_HERE"
+
+# EKS
+eks_cluster_version     = "1.31"
+eks_node_instance_types = ["m5.xlarge"]
+karpenter_version       = "1.9.0"
+keda_chart_version      = "2.14.0"
+
+# RDS SQL Server (CDC source)
+sqlserver_instance_class    = "db.r6i.8xlarge"
+sqlserver_engine_version    = "15.00.4415.2.v1"
+sqlserver_username          = "cdcadmin"
+sqlserver_password          = "CHANGE_ME_Str0ng!"
+sqlserver_allocated_storage = 1500
+
+# Aurora PostgreSQL (JDBC sink target)
+aurora_pg_engine_version = "16.8"
+aurora_pg_instance_class = "db.r5.2xlarge"
+aurora_username          = "postgres"
+aurora_password          = "CHANGE_ME_Str0ng!"
+aurora_db_name           = "sinkdb"
+
+# Confluent Platform
+cp_namespace               = "confluent"
+cp_version                 = "7.9.0"
+cfk_chart_version          = "0.1514.1"
+cfk_init_container_version = "3.2.0"
+kafka_replicas             = 3
+kraft_replicas             = 3
+
+# On-prem latency simulation (Toxiproxy)
+# toxiproxy_enabled    = true     # deploy Toxiproxy; Debezium routes through it
+# toxiproxy_latency_ms = 20       # one-way latency (RTT ≈ 2×)
+# toxiproxy_jitter_ms  = 5        # latency jitter
+
+# Monitoring
+prometheus_stack_version = "58.4.0"
+eso_version              = "0.9.16"

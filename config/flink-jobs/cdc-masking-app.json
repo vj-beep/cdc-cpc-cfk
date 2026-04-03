@@ -1,0 +1,40 @@
+{
+  "_comment": [
+    "FlinkApplication template for JAR-based masking jobs.",
+    "Replace jarURI with your compiled Flink job JAR.",
+    "",
+    "For SQL-based masking (recommended), use instead:",
+    "  ./cdc.sh flink sql flink-sql/01-create-masked-tables.sql",
+    "  ./cdc.sh flink sql flink-sql/02-masking-dml.sql"
+  ],
+  "apiVersion": "cmf.confluent.io/v1",
+  "kind": "FlinkApplication",
+  "metadata": {
+    "name": "cdc-masking"
+  },
+  "spec": {
+    "flinkVersion": "v2_0",
+    "image": "confluentinc/cp-flink:2.0.0-cp1",
+    "serviceAccount": "flink",
+    "flinkConfiguration": {
+      "taskmanager.numberOfTaskSlots": "2",
+      "state.backend.type": "rocksdb",
+      "state.backend.incremental": "true",
+      "state.checkpoints.dir": "s3://__FLINK_STATE_BUCKET__/checkpoints",
+      "state.savepoints.dir": "s3://__FLINK_STATE_BUCKET__/savepoints",
+      "execution.checkpointing.interval": "60000"
+    },
+    "job": {
+      "jarURI": "local:///opt/flink/usrlib/cdc-masking.jar",
+      "parallelism": 2,
+      "state": "running",
+      "upgradeMode": "savepoint"
+    },
+    "jobManager": {
+      "resource": { "cpu": 1, "memory": "1024m" }
+    },
+    "taskManager": {
+      "resource": { "cpu": 2, "memory": "2048m" }
+    }
+  }
+}

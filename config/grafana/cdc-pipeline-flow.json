@@ -1,0 +1,585 @@
+{
+  "dashboard": {
+    "id": null,
+    "uid": "cdc-pipeline-flow",
+    "title": "CDC Pipeline Flow — Source → Topics → Sink",
+    "description": "End-to-end CDC pipeline: SQL Server → Debezium → Kafka → JDBC Sink → Aurora PG",
+    "tags": ["cdc", "debezium", "connect", "kafka", "aurora"],
+    "timezone": "browser",
+    "refresh": "15s",
+    "time": { "from": "now-1h", "to": "now" },
+    "templating": {
+      "list": [
+        {
+          "name": "connector",
+          "type": "query",
+          "datasource": "Prometheus",
+          "query": "label_values(kafka_connect_connector_task_metrics_running_ratio, connector)",
+          "refresh": 2,
+          "multi": true,
+          "includeAll": true,
+          "current": { "text": "All", "value": "$__all" }
+        },
+        {
+          "name": "database",
+          "type": "query",
+          "datasource": "Prometheus",
+          "query": "label_values(debezium_sql_server_connector_metrics_snapshotrunning, database)",
+          "refresh": 2,
+          "multi": true,
+          "includeAll": true,
+          "current": { "text": "All", "value": "$__all" }
+        }
+      ]
+    },
+    "panels": [
+
+      {
+        "title": "🔵 Pipeline Overview",
+        "type": "text",
+        "gridPos": { "h": 3, "w": 24, "x": 0, "y": 0 },
+        "options": {
+          "mode": "markdown",
+          "content": "## RDS SQL Server → Debezium Source → Kafka Topics → JDBC Sink → Aurora PostgreSQL\n\n| Stage | Metrics |\n|-------|--------|\n| **Source** | Records polled/s, Snapshot running, Committed txns, Lag ms |\n| **Kafka** | Consumer lag, Bytes in/out |\n| **Sink** | Records sent/s, Batch latency, Active records, Errors |"
+        }
+      },
+
+      {
+        "title": "📤 SOURCE — Debezium SQL Server CDC",
+        "type": "text",
+        "gridPos": { "h": 1, "w": 24, "x": 0, "y": 3 },
+        "options": { "mode": "markdown", "content": "" }
+      },
+
+      {
+        "title": "Source — Record Poll Rate (records/sec)",
+        "type": "timeseries",
+        "datasource": "Prometheus",
+        "gridPos": { "h": 7, "w": 8, "x": 0, "y": 5 },
+        "targets": [
+          {
+            "expr": "kafka_connect_source_task_metrics_source_record_poll_rate{connector=~\"debezium-.*\"}",
+            "legendFormat": "{{connector}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "ops",
+            "custom": { "fillOpacity": 20, "lineWidth": 2 }
+          }
+        }
+      },
+
+      {
+        "title": "Source — Record Write Rate (to Kafka)",
+        "type": "timeseries",
+        "datasource": "Prometheus",
+        "gridPos": { "h": 7, "w": 8, "x": 8, "y": 5 },
+        "targets": [
+          {
+            "expr": "kafka_connect_source_task_metrics_source_record_write_rate{connector=~\"debezium-.*\"}",
+            "legendFormat": "{{connector}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "ops",
+            "custom": { "fillOpacity": 20, "lineWidth": 2 }
+          }
+        }
+      },
+
+      {
+        "title": "Source — Active Records (in-flight)",
+        "type": "timeseries",
+        "datasource": "Prometheus",
+        "gridPos": { "h": 7, "w": 4, "x": 16, "y": 5 },
+        "targets": [
+          {
+            "expr": "kafka_connect_source_task_metrics_source_record_active_count_avg{connector=~\"debezium-.*\"}",
+            "legendFormat": "{{connector}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "custom": { "fillOpacity": 10, "lineWidth": 2 }
+          }
+        }
+      },
+
+      {
+        "title": "Source — Poll Batch Avg Time (ms)",
+        "type": "timeseries",
+        "datasource": "Prometheus",
+        "gridPos": { "h": 7, "w": 4, "x": 20, "y": 5 },
+        "targets": [
+          {
+            "expr": "kafka_connect_source_task_metrics_poll_batch_avg_time_ms{connector=~\"debezium-.*\"}",
+            "legendFormat": "{{connector}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "ms",
+            "custom": { "fillOpacity": 10, "lineWidth": 2 }
+          }
+        }
+      },
+
+      {
+        "title": "🔬 DEBEZIUM — Snapshot & Streaming (per database)",
+        "type": "text",
+        "gridPos": { "h": 1, "w": 24, "x": 0, "y": 12 },
+        "options": { "mode": "markdown", "content": "" }
+      },
+
+      {
+        "title": "Snapshot Running (1=yes, 0=done)",
+        "type": "stat",
+        "datasource": "Prometheus",
+        "gridPos": { "h": 7, "w": 6, "x": 0, "y": 14 },
+        "targets": [
+          {
+            "expr": "debezium_sql_server_connector_metrics_snapshotrunning{context=\"snapshot\", database=~\"$database\"}",
+            "legendFormat": "{{database}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "thresholds": {
+              "steps": [
+                { "color": "green", "value": 0 },
+                { "color": "orange", "value": 1 }
+              ]
+            },
+            "mappings": [
+              { "type": "value", "options": { "0": { "text": "DONE", "color": "green" }, "1": { "text": "RUNNING", "color": "orange" } } }
+            ]
+          }
+        }
+      },
+
+      {
+        "title": "Committed Transactions (streaming)",
+        "type": "timeseries",
+        "datasource": "Prometheus",
+        "gridPos": { "h": 7, "w": 6, "x": 6, "y": 14 },
+        "targets": [
+          {
+            "expr": "rate(debezium_sql_server_connector_metrics_numberofcommittedtransactions{context=\"streaming\", database=~\"$database\"}[1m])",
+            "legendFormat": "{{database}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "ops",
+            "custom": { "fillOpacity": 15, "lineWidth": 2 }
+          }
+        }
+      },
+
+      {
+        "title": "Ms Since Last Change (schema-history)",
+        "type": "timeseries",
+        "datasource": "Prometheus",
+        "gridPos": { "h": 7, "w": 6, "x": 12, "y": 14 },
+        "targets": [
+          {
+            "expr": "debezium_sql_server_connector_metrics_millisecondssincelastrecoveredchange{database=~\"$database\"}",
+            "legendFormat": "{{database}} ({{context}})"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "ms",
+            "custom": { "fillOpacity": 10, "lineWidth": 2 },
+            "thresholds": {
+              "steps": [
+                { "color": "green", "value": 0 },
+                { "color": "yellow", "value": 60000 },
+                { "color": "red", "value": 300000 }
+              ]
+            }
+          }
+        }
+      },
+
+      {
+        "title": "Queue Remaining Capacity",
+        "type": "timeseries",
+        "datasource": "Prometheus",
+        "gridPos": { "h": 7, "w": 6, "x": 18, "y": 14 },
+        "targets": [
+          {
+            "expr": "debezium_sql_server_connector_metrics_queueremainingcapacity{context=\"streaming\", database=~\"$database\"}",
+            "legendFormat": "{{database}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "custom": { "fillOpacity": 10, "lineWidth": 2 },
+            "thresholds": {
+              "steps": [
+                { "color": "red", "value": 0 },
+                { "color": "yellow", "value": 4096 },
+                { "color": "green", "value": 16384 }
+              ]
+            }
+          }
+        }
+      },
+
+      {
+        "title": "📊 KAFKA — Consumer Lag & Throughput",
+        "type": "text",
+        "gridPos": { "h": 1, "w": 24, "x": 0, "y": 21 },
+        "options": { "mode": "markdown", "content": "" }
+      },
+
+      {
+        "title": "Consumer Lag — Sink Connectors",
+        "type": "timeseries",
+        "datasource": "Prometheus",
+        "gridPos": { "h": 7, "w": 12, "x": 0, "y": 23 },
+        "targets": [
+          {
+            "expr": "kafka_consumer_consumer_fetch_manager_metrics_records_lag{connector=~\"jdbc-sink-.*\"}",
+            "legendFormat": "{{connector}} p{{partition}}"
+          },
+          {
+            "expr": "kafka_consumer_consumer_fetch_manager_metrics_records_lag_max{connector=~\"jdbc-sink-.*\"}",
+            "legendFormat": "{{connector}} MAX"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "custom": { "fillOpacity": 20, "lineWidth": 2, "gradientMode": "scheme" },
+            "thresholds": {
+              "steps": [
+                { "color": "green", "value": 0 },
+                { "color": "yellow", "value": 100000 },
+                { "color": "red", "value": 1000000 }
+              ]
+            }
+          }
+        }
+      },
+
+      {
+        "title": "Consumer Lag — All Connectors (Avg)",
+        "type": "timeseries",
+        "datasource": "Prometheus",
+        "gridPos": { "h": 7, "w": 12, "x": 12, "y": 23 },
+        "targets": [
+          {
+            "expr": "kafka_consumer_consumer_fetch_manager_metrics_records_lag_avg{connector=~\"$connector\"}",
+            "legendFormat": "{{connector}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "custom": { "fillOpacity": 20, "lineWidth": 2 }
+          }
+        }
+      },
+
+      {
+        "title": "📥 SINK — JDBC Connectors → Aurora PG",
+        "type": "text",
+        "gridPos": { "h": 1, "w": 24, "x": 0, "y": 30 },
+        "options": { "mode": "markdown", "content": "" }
+      },
+
+      {
+        "title": "Sink — Records Sent / sec",
+        "type": "timeseries",
+        "datasource": "Prometheus",
+        "gridPos": { "h": 7, "w": 8, "x": 0, "y": 32 },
+        "targets": [
+          {
+            "expr": "kafka_connect_sink_task_metrics_sink_record_send_rate{connector=~\"jdbc-sink-.*\"}",
+            "legendFormat": "{{connector}} task-{{task}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "ops",
+            "custom": { "fillOpacity": 20, "lineWidth": 2 }
+          }
+        }
+      },
+
+      {
+        "title": "Sink — Records Read / sec",
+        "type": "timeseries",
+        "datasource": "Prometheus",
+        "gridPos": { "h": 7, "w": 8, "x": 8, "y": 32 },
+        "targets": [
+          {
+            "expr": "kafka_connect_sink_task_metrics_sink_record_read_rate{connector=~\"jdbc-sink-.*\"}",
+            "legendFormat": "{{connector}} task-{{task}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "ops",
+            "custom": { "fillOpacity": 20, "lineWidth": 2 }
+          }
+        }
+      },
+
+      {
+        "title": "Sink — Put Batch Avg Time (ms)",
+        "type": "timeseries",
+        "datasource": "Prometheus",
+        "gridPos": { "h": 7, "w": 8, "x": 16, "y": 32 },
+        "targets": [
+          {
+            "expr": "kafka_connect_sink_task_metrics_put_batch_avg_time_ms{connector=~\"jdbc-sink-.*\"}",
+            "legendFormat": "{{connector}} task-{{task}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "ms",
+            "custom": { "fillOpacity": 10, "lineWidth": 2 },
+            "thresholds": {
+              "steps": [
+                { "color": "green", "value": 0 },
+                { "color": "yellow", "value": 500 },
+                { "color": "red", "value": 2000 }
+              ]
+            }
+          }
+        }
+      },
+
+      {
+        "title": "Sink — Active Records (in-flight)",
+        "type": "timeseries",
+        "datasource": "Prometheus",
+        "gridPos": { "h": 7, "w": 12, "x": 0, "y": 39 },
+        "targets": [
+          {
+            "expr": "kafka_connect_sink_task_metrics_sink_record_active_count{connector=~\"jdbc-sink-.*\"}",
+            "legendFormat": "{{connector}} task-{{task}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "custom": { "fillOpacity": 15, "lineWidth": 2 }
+          }
+        }
+      },
+
+      {
+        "title": "Sink — Total Errors",
+        "type": "stat",
+        "datasource": "Prometheus",
+        "gridPos": { "h": 7, "w": 6, "x": 12, "y": 39 },
+        "targets": [
+          {
+            "expr": "kafka_connect_task_error_metrics_total_record_errors{connector=~\"jdbc-sink-.*\"}",
+            "legendFormat": "{{connector}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "thresholds": {
+              "steps": [
+                { "color": "green", "value": 0 },
+                { "color": "red", "value": 1 }
+              ]
+            }
+          }
+        }
+      },
+
+      {
+        "title": "Sink — Partition Count",
+        "type": "stat",
+        "datasource": "Prometheus",
+        "gridPos": { "h": 7, "w": 6, "x": 18, "y": 39 },
+        "targets": [
+          {
+            "expr": "kafka_connect_sink_task_metrics_partition_count{connector=~\"jdbc-sink-.*\"}",
+            "legendFormat": "{{connector}} task-{{task}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": { "unit": "short" }
+        }
+      },
+
+      {
+        "title": "⚙️ WORKERS — Connect Cluster Health",
+        "type": "text",
+        "gridPos": { "h": 1, "w": 24, "x": 0, "y": 46 },
+        "options": { "mode": "markdown", "content": "" }
+      },
+
+      {
+        "title": "Worker — Task Count & Connector Count",
+        "type": "stat",
+        "datasource": "Prometheus",
+        "gridPos": { "h": 5, "w": 6, "x": 0, "y": 48 },
+        "targets": [
+          {
+            "expr": "kafka_connect_connect_worker_metrics_task_count",
+            "legendFormat": "Total Tasks"
+          },
+          {
+            "expr": "kafka_connect_connect_worker_metrics_connector_count",
+            "legendFormat": "Total Connectors"
+          }
+        ],
+        "fieldConfig": { "defaults": { "unit": "short" } }
+      },
+
+      {
+        "title": "Running vs Failed Tasks",
+        "type": "bargauge",
+        "datasource": "Prometheus",
+        "gridPos": { "h": 5, "w": 6, "x": 6, "y": 48 },
+        "targets": [
+          {
+            "expr": "kafka_connect_connect_worker_metrics_connector_running_task_count",
+            "legendFormat": "Running"
+          },
+          {
+            "expr": "kafka_connect_connect_worker_metrics_connector_failed_task_count",
+            "legendFormat": "Failed"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "thresholds": {
+              "steps": [
+                { "color": "green", "value": 0 },
+                { "color": "red", "value": 1 }
+              ]
+            }
+          }
+        }
+      },
+
+      {
+        "title": "Task — CPU Load Avg",
+        "type": "timeseries",
+        "datasource": "Prometheus",
+        "gridPos": { "h": 7, "w": 6, "x": 12, "y": 48 },
+        "targets": [
+          {
+            "expr": "kafka_connect_connector_task_metrics_task_cpu_load_avg{connector=~\"$connector\"}",
+            "legendFormat": "{{connector}} task-{{task}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percentunit",
+            "custom": { "fillOpacity": 20, "lineWidth": 2 }
+          }
+        }
+      },
+
+      {
+        "title": "Task — Memory Usage Avg",
+        "type": "timeseries",
+        "datasource": "Prometheus",
+        "gridPos": { "h": 7, "w": 6, "x": 18, "y": 48 },
+        "targets": [
+          {
+            "expr": "kafka_connect_connector_task_metrics_task_mem_usages_avg{connector=~\"$connector\"}",
+            "legendFormat": "{{connector}} task-{{task}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "bytes",
+            "custom": { "fillOpacity": 20, "lineWidth": 2 }
+          }
+        }
+      },
+
+      {
+        "title": "Task — Running Ratio",
+        "type": "timeseries",
+        "datasource": "Prometheus",
+        "gridPos": { "h": 7, "w": 8, "x": 0, "y": 55 },
+        "targets": [
+          {
+            "expr": "kafka_connect_connector_task_metrics_running_ratio{connector=~\"$connector\"}",
+            "legendFormat": "{{connector}} task-{{task}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percentunit",
+            "min": 0, "max": 1,
+            "custom": { "fillOpacity": 10, "lineWidth": 2 },
+            "thresholds": {
+              "steps": [
+                { "color": "red", "value": 0 },
+                { "color": "yellow", "value": 0.9 },
+                { "color": "green", "value": 0.99 }
+              ]
+            }
+          }
+        }
+      },
+
+      {
+        "title": "Task — Batch Size Avg",
+        "type": "timeseries",
+        "datasource": "Prometheus",
+        "gridPos": { "h": 7, "w": 8, "x": 8, "y": 55 },
+        "targets": [
+          {
+            "expr": "kafka_connect_connector_task_metrics_batch_size_avg{connector=~\"$connector\"}",
+            "legendFormat": "{{connector}} task-{{task}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "custom": { "fillOpacity": 15, "lineWidth": 2 }
+          }
+        }
+      },
+
+      {
+        "title": "Rebalances — Count & Avg Time",
+        "type": "stat",
+        "datasource": "Prometheus",
+        "gridPos": { "h": 7, "w": 8, "x": 16, "y": 55 },
+        "targets": [
+          {
+            "expr": "kafka_connect_connect_worker_rebalance_metrics_completed_rebalances_total",
+            "legendFormat": "Total Rebalances"
+          },
+          {
+            "expr": "kafka_connect_connect_worker_rebalance_metrics_rebalance_avg_time_ms",
+            "legendFormat": "Avg Time (ms)"
+          },
+          {
+            "expr": "kafka_connect_connect_worker_rebalance_metrics_time_since_last_rebalance_ms / 1000",
+            "legendFormat": "Since Last (sec)"
+          }
+        ],
+        "fieldConfig": { "defaults": { "unit": "short" } }
+      }
+
+    ],
+    "schemaVersion": 39,
+    "version": 2
+  },
+  "overwrite": true
+}

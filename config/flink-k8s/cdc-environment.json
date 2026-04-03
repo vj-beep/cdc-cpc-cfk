@@ -1,0 +1,22 @@
+{
+  "apiVersion": "cmf.confluent.io/v1",
+  "kind": "FlinkEnvironment",
+  "metadata": {
+    "name": "cdc-env"
+  },
+  "spec": {
+    "kubernetesNamespace": "flink",
+    "flinkConfiguration": {
+      "state.backend.type": "rocksdb",
+      "state.backend.incremental": "true",
+      "state.checkpoints.dir": "s3://__FLINK_STATE_BUCKET__/checkpoints",
+      "state.savepoints.dir": "s3://__FLINK_STATE_BUCKET__/savepoints",
+      "execution.checkpointing.interval": "60000",
+      "taskmanager.numberOfTaskSlots": "2",
+      "restart-strategy": "failure-rate",
+      "restart-strategy.failure-rate.max-failures-per-interval": "10",
+      "restart-strategy.failure-rate.failure-rate-interval": "10 min",
+      "restart-strategy.failure-rate.delay": "30 s"
+    }
+  }
+}

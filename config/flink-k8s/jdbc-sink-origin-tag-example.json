@@ -1,0 +1,15 @@
+{
+  "_comment": "Add to existing JDBC sink connector config to tag origin for loop prevention",
+  "_instruction": "Merge these transforms into your jdbc-sink-aurora / jdbc-sink-financedb configs",
+  "transforms": "unwrap,route,addOrigin",
+  "transforms.unwrap.type": "io.debezium.transforms.ExtractNewRecordState",
+  "transforms.unwrap.drop.tombstones": "false",
+  "transforms.unwrap.delete.handling.mode": "rewrite",
+  "transforms.route.type": "org.apache.kafka.connect.transforms.RegexRouter",
+  "transforms.route.regex": "[^.]+[.](.*)[.](.*)",
+  "transforms.route.replacement": "$2",
+  "transforms.addOrigin.type": "org.apache.kafka.connect.transforms.InsertField$Value",
+  "transforms.addOrigin.static.field": "__origin",
+  "transforms.addOrigin.static.value": "sqlserver",
+  "_aurora_ddl": "ALTER TABLE public.<table> ADD COLUMN IF NOT EXISTS __origin VARCHAR(20) DEFAULT NULL;"
+}
